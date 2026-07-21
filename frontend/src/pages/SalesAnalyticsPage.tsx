@@ -182,6 +182,84 @@ export function SalesAnalyticsPage() {
     retry: false,
   });
 
+  // Report Export States
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [reportStatus, setReportStatus] = useState<"idle" | "generating" | "success" | "error">("idle");
+  const [reportMsg, setReportMsg] = useState("");
+
+  const triggerAsyncReport = async (format: "pdf" | "excel") => {
+    if (!selectedDatasetId) return;
+    setReportStatus("generating");
+    setReportMsg(`Initiating ${format.toUpperCase()} report generation...`);
+    setShowExportMenu(false);
+
+    try {
+      const res = await api.post(`/datasets/${selectedDatasetId}/reports/${format}`, {
+        start_date: startDate || null,
+        end_date: endDate || null,
+        granularity: granularity,
+        category: categoryFilter || null,
+        region: regionFilter || null,
+      });
+
+      const { task_id } = res.data;
+      pollReportStatus(task_id, format);
+    } catch (err: any) {
+      setReportStatus("error");
+      setReportMsg(err.response?.data?.detail || "Failed to trigger report compilation.");
+    }
+  };
+
+  const pollReportStatus = (taskId: string, format: "pdf" | "excel") => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get(`/datasets/reports/status/${taskId}`);
+        const { status, download_url } = res.data;
+
+        if (status === "success") {
+          clearInterval(interval);
+          setReportStatus("success");
+          setReportMsg(`${format.toUpperCase()} report compiled successfully!`);
+          
+          // Trigger browser download
+          const downloadLink = document.createElement("a");
+          downloadLink.href = `${api.defaults.baseURL || "http://localhost:8000/api/v1"}${download_url}`;
+          downloadLink.setAttribute("download", `sales_report_${taskId}.${format === "pdf" ? "pdf" : "xlsx"}`);
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          document.body.removeChild(downloadLink);
+          
+          setTimeout(() => setReportStatus("idle"), 3000);
+        } else if (status === "failed") {
+          clearInterval(interval);
+          setReportStatus("error");
+          setReportMsg(res.data.error || "Report generation failed on the server.");
+        } else {
+          setReportMsg(`Compiling ${format.toUpperCase()} report...`);
+        }
+      } catch (err) {
+        clearInterval(interval);
+        setReportStatus("error");
+        setReportMsg("Error checking report generation progress.");
+      }
+    }, 2000);
+  };
+
+  const handleExportCSV = () => {
+    if (!selectedDatasetId) return;
+    setShowExportMenu(false);
+    
+    const params = new URLSearchParams();
+    if (startDate) params.append("start_date", startDate);
+    if (endDate) params.append("end_date", endDate);
+    params.append("granularity", granularity);
+    if (categoryFilter) params.append("category", categoryFilter);
+    if (regionFilter) params.append("region", regionFilter);
+
+    const baseURL = api.defaults.baseURL || "http://localhost:8000/api/v1";
+    window.open(`${baseURL}/datasets/${selectedDatasetId}/reports/csv?${params.toString()}`);
+  };
+
   // Trigger forecast model training
   const handleTrainForecast = async () => {
     if (!selectedDatasetId) return;
@@ -421,17 +499,72 @@ export function SalesAnalyticsPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 relative">
               <Button variant="outline" size="sm" onClick={handleSummarizeDashboard} disabled={loadingAnalytics || loadingSummary}>
                 <Sparkles className="w-3.5 h-3.5 mr-1.5 text-primary" />
                 Summarize Dashboard
               </Button>
-              <Button variant="outline" size="sm" onClick={handleExport} disabled={loadingAnalytics}>
-                <Download className="w-3.5 h-3.5 mr-1.5" />
-                Export CSV
-              </Button>
+
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  disabled={loadingAnalytics}
+                  className="flex items-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Export Options
+                </Button>
+                {showExportMenu && (
+                  <div className="absolute right-0 mt-1 w-44 rounded-md border border-border bg-card shadow-lg z-50 py-1 text-xs">
+                    <button
+                      onClick={() => triggerAsyncReport("pdf")}
+                      className="w-full text-left px-3 py-2 hover:bg-accent text-foreground flex items-center gap-2"
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                      Export as PDF Report
+                    </button>
+                    <button
+                      onClick={() => triggerAsyncReport("excel")}
+                      className="w-full text-left px-3 py-2 hover:bg-accent text-foreground flex items-center gap-2"
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                      Export as Excel Sheet
+                    </button>
+                    <button
+                      onClick={handleExportCSV}
+                      className="w-full text-left px-3 py-2 hover:bg-accent text-foreground flex items-center gap-2"
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                      Export as CSV (Instant)
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+
+          {/* ASYNC REPORT STATUS NOTICE */}
+          {reportStatus !== "idle" && (
+            <div className={`p-3 rounded-lg border text-xs flex items-center justify-between gap-3 animate-in slide-in-from-top ${
+              reportStatus === "generating"
+                ? "bg-primary/5 text-primary border-primary/20"
+                : reportStatus === "success"
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                : "bg-destructive/10 text-destructive border-destructive/20"
+            }`}>
+              <div className="flex items-center gap-2">
+                {reportStatus === "generating" && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                <span>{reportMsg}</span>
+              </div>
+              {reportStatus !== "generating" && (
+                <Button variant="ghost" size="sm" className="h-6 px-1.5" onClick={() => setReportStatus("idle")}>
+                  Clear
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* DRILL-DOWN CHIPS */}
           {(categoryFilter || regionFilter) && (

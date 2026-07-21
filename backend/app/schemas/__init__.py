@@ -9,6 +9,7 @@ from app.schemas.ai import (
     SummarizeDashboardRequest,
     SummarizeDashboardResponse,
 )
+from app.schemas.reports import ReportExportRequest, ReportStatusResponse
 
 __all__ = [
     "UserRegister",
@@ -23,4 +24,6 @@ __all__ = [
     "ExplainChartResponse",
     "SummarizeDashboardRequest",
     "SummarizeDashboardResponse",
+    "ReportExportRequest",
+    "ReportStatusResponse",
 ]
