@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str | None = None
     OPENAI_API_KEY: str | None = None
     ANTHROPIC_API_KEY: str | None = None
+    OPENROUTER_API_KEY: str | None = None
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 

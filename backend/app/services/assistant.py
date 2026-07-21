@@ -135,8 +135,30 @@ def build_rule_based_dashboard_summary(
 
 
 async def call_llm(system_prompt: str, prompt: str) -> str:
-    """Route LLM requests using httpx to available API keys (Gemini, OpenAI, Anthropic)."""
+    """Route LLM requests using httpx to available API keys (OpenRouter, Gemini, OpenAI, Anthropic)."""
     timeout = 5.0  # Strict timeout guardrail
+
+    # 0. OpenRouter integration
+    if settings.OPENROUTER_API_KEY:
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+            "HTTP-Referer": "http://localhost:3000",
+            "X-Title": "EDIP",
+        }
+        payload = {
+            "model": "google/gemini-2.5-flash",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.1,
+        }
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            res = await client.post(url, json=payload, headers=headers)
+            res.raise_for_status()
+            data = res.json()
+            return str(data["choices"][0]["message"]["content"]).strip()
 
     # 1. Google Gemini integration
     if settings.GEMINI_API_KEY:
@@ -205,7 +227,7 @@ async def explain_chart_service(chart_type: str, chart_data: Any) -> str:
     context_str = f"Chart Type: {chart_type}\nData values: {chart_data}"
 
     # Fallback if no keys
-    if not (settings.GEMINI_API_KEY or settings.OPENAI_API_KEY or settings.ANTHROPIC_API_KEY):
+    if not (settings.GEMINI_API_KEY or settings.OPENAI_API_KEY or settings.ANTHROPIC_API_KEY or settings.OPENROUTER_API_KEY):
         return build_rule_based_chart_explanation(chart_type, chart_data)
 
     system_prompt = (
@@ -242,7 +264,7 @@ async def summarize_dashboard_service(
     )
 
     # Fallback if no keys
-    if not (settings.GEMINI_API_KEY or settings.OPENAI_API_KEY or settings.ANTHROPIC_API_KEY):
+    if not (settings.GEMINI_API_KEY or settings.OPENAI_API_KEY or settings.ANTHROPIC_API_KEY or settings.OPENROUTER_API_KEY):
         return build_rule_based_dashboard_summary(kpis, trend, categories, regions)
 
     system_prompt = (
