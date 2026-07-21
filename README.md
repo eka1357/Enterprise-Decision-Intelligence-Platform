@@ -39,14 +39,14 @@ scripts/       → Utility scripts
 ```
 That's it — Complete Project is completed in 8 phases total, Recap:
 
-1.Skeleton /n
-2.Data pipeline 
-3.Sales analytics module 
-4.Sales forecasting + SHAP 
-5.AI assistant
-6.Reports — PDF/Excel/CSV
-7.Remaining 7 business modules
-8.Hardening — testing, RBAC, CI/CD, security, docs polish
+1.Skeleton ->
+2.Data pipeline ->
+3.Sales analytics module ->
+4.Sales forecasting + SHAP ->
+5.AI assistant ->
+6.Reports — PDF/Excel/CSV ->
+7.Remaining 7 business modules ->
+8.Hardening — testing, RBAC, CI/CD, security, docs polish 
 
 ## License
 
