@@ -31,6 +31,7 @@ class Dataset(Base):
     status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
     cleaned_file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     profile_report: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    column_mapping: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

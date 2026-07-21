@@ -6,7 +6,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.dataset import Dataset
-from app.schemas.dataset import DatasetResponse
+from app.schemas.dataset import DatasetResponse, ColumnMappingRequest
 from app.services.dataset import list_user_datasets, upload_dataset
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
@@ -113,4 +113,37 @@ def get_dataset_profile(
         )
 
     return dataset.profile_report
+
+
+@router.post(
+    "/{dataset_id}/map",
+    response_model=DatasetResponse,
+    summary="Save column mapping for a dataset",
+)
+def map_dataset_columns(
+    dataset_id: uuid.UUID,
+    mapping: ColumnMappingRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> DatasetResponse:
+    """Define the column mapping for standardized analytics modules (e.g. Sales)."""
+    dataset = (
+        db.query(Dataset)
+        .filter(Dataset.id == dataset_id, Dataset.user_id == current_user.id)
+        .first()
+    )
+    if not dataset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dataset not found",
+        )
+
+    # Convert request schema to dictionary, dropping None fields
+    mapping_dict = {k: v for k, v in mapping.model_dump().items() if v is not None}
+    dataset.column_mapping = mapping_dict
+    db.commit()
+    db.refresh(dataset)
+
+    return DatasetResponse.model_validate(dataset)
+
 

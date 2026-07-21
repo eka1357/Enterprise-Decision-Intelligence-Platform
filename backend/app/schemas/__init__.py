@@ -1,7 +1,7 @@
 """Pydantic request/response schemas."""
 
 from app.schemas.auth import UserRegister, UserLogin, UserResponse, TokenResponse
-from app.schemas.dataset import DatasetResponse
+from app.schemas.dataset import DatasetResponse, ColumnMappingRequest
 
 __all__ = [
     "UserRegister",
@@ -9,4 +9,5 @@ __all__ = [
     "UserResponse",
     "TokenResponse",
     "DatasetResponse",
+    "ColumnMappingRequest",
 ]

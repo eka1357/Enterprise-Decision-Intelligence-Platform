@@ -33,7 +33,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
   { label: "Datasets", path: "/datasets", icon: Database },
-  { label: "Sales Analytics", path: "/analytics/sales", icon: TrendingUp, disabled: true },
+  { label: "Sales Analytics", path: "/analytics/sales", icon: TrendingUp },
   { label: "Marketing", path: "/analytics/marketing", icon: BarChart3, disabled: true },
   { label: "Finance", path: "/analytics/finance", icon: DollarSign, disabled: true },
   { label: "Operations", path: "/analytics/operations", icon: Settings, disabled: true },
