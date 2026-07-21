@@ -3,6 +3,12 @@
 from app.schemas.auth import UserRegister, UserLogin, UserResponse, TokenResponse
 from app.schemas.dataset import DatasetResponse, ColumnMappingRequest
 from app.schemas.forecasting import ModelVersionResponse, ForecastResponse
+from app.schemas.ai import (
+    ExplainChartRequest,
+    ExplainChartResponse,
+    SummarizeDashboardRequest,
+    SummarizeDashboardResponse,
+)
 
 __all__ = [
     "UserRegister",
@@ -13,4 +19,8 @@ __all__ = [
     "ColumnMappingRequest",
     "ModelVersionResponse",
     "ForecastResponse",
+    "ExplainChartRequest",
+    "ExplainChartResponse",
+    "SummarizeDashboardRequest",
+    "SummarizeDashboardResponse",
 ]

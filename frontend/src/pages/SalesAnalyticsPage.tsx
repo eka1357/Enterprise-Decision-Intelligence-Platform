@@ -18,6 +18,7 @@ import {
   Brain,
   Sparkles,
   Info,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ import {
 } from "recharts";
 import api from "@/lib/api";
 import { ColumnMappingModal } from "@/components/analytics/ColumnMappingModal";
+import { AIEngine } from "@/components/analytics/AIEngine";
 
 interface Dataset {
   id: string;
@@ -99,6 +101,12 @@ export function SalesAnalyticsPage() {
   const [regionFilter, setRegionFilter] = useState<string | null>(null);
   const [isMappingModalOpen, setIsMappingModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "forecasting">("overview");
+
+  // AI Assistant states
+  const [explainingChart, setExplainingChart] = useState<{ type: string; data: any } | null>(null);
+  const [dashboardSummary, setDashboardSummary] = useState("");
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  const [summaryError, setSummaryError] = useState("");
 
   // Training state
   const [trainingStatus, setTrainingStatus] = useState<"idle" | "training" | "success" | "error">("idle");
@@ -191,11 +199,37 @@ export function SalesAnalyticsPage() {
     }
   };
 
+  // Summarize dashboard action
+  const handleSummarizeDashboard = async () => {
+    if (!selectedDatasetId || !analytics) return;
+    setLoadingSummary(true);
+    setSummaryError("");
+    setDashboardSummary("");
+
+    try {
+      const res = await api.post(`/datasets/${selectedDatasetId}/assistant/summarize-dashboard`, {
+        kpis: {
+          revenue: analytics.kpis.revenue,
+          quantity: analytics.kpis.quantity,
+          aov: analytics.kpis.aov,
+          customers: analytics.kpis.customers,
+        },
+        trend: analytics.trend,
+        categories: analytics.categories,
+        regions: analytics.regions,
+      });
+      setDashboardSummary(res.data.summary);
+    } catch (err: any) {
+      setSummaryError(err.response?.data?.detail || "AI summary is temporarily unavailable.");
+    } finally {
+      setLoadingSummary(false);
+    }
+  };
+
   // Combine trend and forecast data for the chart
   const combinedChartData = useMemo(() => {
     if (!analytics?.trend) return [];
     
-    // Add historical records
     const records = analytics.trend.map((t) => ({
       date: t.date,
       historical: t.revenue,
@@ -206,10 +240,8 @@ export function SalesAnalyticsPage() {
 
     if (!forecast?.predictions) return records;
 
-    // Connect historical trend to forecast line
     const lastHist = records[records.length - 1];
     
-    // Add forecasted records
     const forecastRecords = forecast.predictions.map((p, idx) => ({
       date: p.date,
       historical: idx === 0 && lastHist ? lastHist.historical : null,
@@ -246,7 +278,19 @@ export function SalesAnalyticsPage() {
   const kpis = analytics?.kpis;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in relative">
+      {/* AI Explainer Floating Panel */}
+      {explainingChart && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <AIEngine
+            datasetId={selectedDatasetId}
+            chartType={explainingChart.type}
+            chartData={explainingChart.data}
+            onClose={() => setExplainingChart(null)}
+          />
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -266,6 +310,8 @@ export function SalesAnalyticsPage() {
               setCategoryFilter(null);
               setRegionFilter(null);
               setTrainingStatus("idle");
+              setDashboardSummary("");
+              setExplainingChart(null);
             }}
             className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring min-w-[200px]"
             disabled={loadingDatasets}
@@ -376,6 +422,10 @@ export function SalesAnalyticsPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleSummarizeDashboard} disabled={loadingAnalytics || loadingSummary}>
+                <Sparkles className="w-3.5 h-3.5 mr-1.5 text-primary" />
+                Summarize Dashboard
+              </Button>
               <Button variant="outline" size="sm" onClick={handleExport} disabled={loadingAnalytics}>
                 <Download className="w-3.5 h-3.5 mr-1.5" />
                 Export CSV
@@ -410,6 +460,43 @@ export function SalesAnalyticsPage() {
                 Clear All
               </Button>
             </div>
+          )}
+
+          {/* AI EXECUTIVE SUMMARY PANEL */}
+          {loadingSummary && (
+            <Card className="border border-primary/20 bg-primary/5 p-4 space-y-2">
+              <Skeleton className="h-4 w-[60%]" />
+              <Skeleton className="h-3 w-[95%]" />
+              <Skeleton className="h-3 w-[85%]" />
+            </Card>
+          )}
+
+          {summaryError && (
+            <div className="p-3 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              <span>{summaryError}</span>
+            </div>
+          )}
+
+          {dashboardSummary && (
+            <Card className="border border-primary/20 bg-primary/5 relative overflow-hidden animate-in fade-in duration-300">
+              <div className="absolute top-0 right-0 p-1">
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setDashboardSummary("")}>
+                  <X className="w-3.5 h-3.5 text-muted-foreground" />
+                </Button>
+              </div>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-bold flex items-center gap-1 text-primary">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  AI Executive Narrative Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {dashboardSummary}
+                </p>
+              </CardContent>
+            </Card>
           )}
 
           {/* RESULTS GRID */}
@@ -535,11 +622,15 @@ export function SalesAnalyticsPage() {
               {/* Charts Row */}
               <div className="grid gap-6 md:grid-cols-3">
                 <Card className="md:col-span-2 glass-card">
-                  <CardHeader>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
                       <TrendingUp className="w-4 h-4 text-primary" />
                       Revenue Trend
                     </CardTitle>
+                    <Button variant="ghost" size="sm" className="h-7 text-[10px] text-primary" onClick={() => setExplainingChart({ type: "Revenue Trend", data: analytics.trend })}>
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      Explain
+                    </Button>
                   </CardHeader>
                   <CardContent className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
@@ -561,12 +652,18 @@ export function SalesAnalyticsPage() {
                 </Card>
 
                 <Card className="glass-card">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Map className="w-4 h-4 text-primary" />
-                      Sales by Region
-                    </CardTitle>
-                    <CardDescription>Click a slice to filter dashboard</CardDescription>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <div>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Map className="w-4 h-4 text-primary" />
+                        Sales by Region
+                      </CardTitle>
+                      <CardDescription className="text-[10px]">Click a slice to filter dashboard</CardDescription>
+                    </div>
+                    <Button variant="ghost" size="sm" className="h-7 text-[10px] text-primary" onClick={() => setExplainingChart({ type: "Sales by Region", data: analytics.regions })}>
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      Explain
+                    </Button>
                   </CardHeader>
                   <CardContent className="h-80 flex flex-col justify-center">
                     <div className="h-60">
@@ -596,12 +693,18 @@ export function SalesAnalyticsPage() {
               </div>
 
               <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-primary" />
-                    Top Product Categories
-                  </CardTitle>
-                  <CardDescription>Click a bar to filter by product slice</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <div>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-primary" />
+                      Top Product Categories
+                    </CardTitle>
+                    <CardDescription className="text-[10px]">Click a bar to filter by product slice</CardDescription>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-7 text-[10px] text-primary" onClick={() => setExplainingChart({ type: "Top Product Categories", data: analytics.categories })}>
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    Explain
+                  </Button>
                 </CardHeader>
                 <CardContent className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
