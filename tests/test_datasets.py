@@ -22,7 +22,7 @@ class TestUpload:
         assert data["original_filename"] == "test_data.csv"
         assert data["row_count"] == 3
         assert data["column_count"] == 4
-        assert data["status"] == "uploaded"
+        assert data["status"] == "pending"
         assert "id" in data
         assert data["file_size_bytes"] > 0
 

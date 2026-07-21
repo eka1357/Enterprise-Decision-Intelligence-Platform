@@ -5,6 +5,7 @@ import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { DatasetsPage } from "@/pages/DatasetsPage";
+import { DatasetProfilePage } from "@/pages/DatasetProfilePage";
 
 function App() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -33,6 +34,7 @@ function App() {
       >
         <Route path="/" element={<DashboardPage />} />
         <Route path="/datasets" element={<DatasetsPage />} />
+        <Route path="/datasets/:id/profile" element={<DatasetProfilePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

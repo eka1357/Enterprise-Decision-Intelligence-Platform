@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import {
   Upload,
   FileSpreadsheet,
@@ -7,6 +8,8 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
+  Loader2,
+  Eye,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +50,13 @@ export function DatasetsPage() {
     queryFn: async () => {
       const res = await api.get("/datasets");
       return res.data;
+    },
+    refetchInterval: (query) => {
+      const list = query.state.data as Dataset[] | undefined;
+      const hasProcessing = list?.some(
+        (d) => d.status === "pending" || d.status === "processing"
+      );
+      return hasProcessing ? 2000 : false;
     },
   });
 
@@ -262,6 +272,9 @@ export function DatasetsPage() {
                     <th className="text-right py-3 px-4 font-medium text-muted-foreground">
                       Uploaded
                     </th>
+                    <th className="text-right py-3 px-4 font-medium text-muted-foreground">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -289,12 +302,35 @@ export function DatasetsPage() {
                         {formatBytes(d.file_size_bytes)}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <Badge variant="secondary" className="text-xs">
-                          {d.status}
-                        </Badge>
+                        {d.status === "pending" || d.status === "processing" ? (
+                          <Badge variant="secondary" className="text-xs inline-flex items-center gap-1">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            {d.status}
+                          </Badge>
+                        ) : d.status === "ready" ? (
+                          <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                            {d.status}
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive" className="text-xs">
+                            {d.status}
+                          </Badge>
+                        )}
                       </td>
                       <td className="py-3 px-4 text-right text-muted-foreground">
                         {new Date(d.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {d.status === "ready" ? (
+                          <Link
+                            to={`/datasets/${d.id}/profile`}
+                            className="text-primary hover:text-primary/80 font-medium inline-flex items-center gap-1 text-xs"
+                          >
+                            <Eye className="w-3 h-3" /> View Profile
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground/30">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}

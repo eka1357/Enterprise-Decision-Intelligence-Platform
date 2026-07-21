@@ -17,6 +17,8 @@ class DatasetResponse(BaseModel):
     column_count: int | None = None
     columns_metadata: list[dict[str, Any]] | None = None
     status: str
+    cleaned_file_path: str | None = None
+    profile_report: dict[str, Any] | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

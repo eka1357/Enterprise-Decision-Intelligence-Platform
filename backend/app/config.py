@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     # File storage
     UPLOAD_DIR: str = "./storage/uploads"
 
+    # Celery & Redis
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 

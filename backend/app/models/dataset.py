@@ -28,7 +28,9 @@ class Dataset(Base):
     row_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     column_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     columns_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    status: Mapped[str] = mapped_column(String(50), default="uploaded", nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
+    cleaned_file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    profile_report: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

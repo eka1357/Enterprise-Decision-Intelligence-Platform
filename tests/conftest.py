@@ -14,7 +14,11 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
-from app.main import app
+from app.main import app as fastapi_app
+from app.celery_app import celery
+
+# Force Celery tasks to run synchronously inline for tests
+celery.conf.update(task_always_eager=True)
 
 # Use SQLite in-memory for tests — avoids needing a running Postgres
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite://"
@@ -25,6 +29,10 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Patch Celery task SessionLocal to use SQLite in tests
+import app.tasks
+app.tasks.SessionLocal = TestingSessionLocal
 
 
 @pytest.fixture(autouse=True)
@@ -54,10 +62,10 @@ def client(db):
         finally:
             pass
 
-    app.dependency_overrides[get_db] = _override_get_db
-    with TestClient(app) as c:
+    fastapi_app.dependency_overrides[get_db] = _override_get_db
+    with TestClient(fastapi_app) as c:
         yield c
-    app.dependency_overrides.clear()
+    fastapi_app.dependency_overrides.clear()
 
 
 @pytest.fixture()

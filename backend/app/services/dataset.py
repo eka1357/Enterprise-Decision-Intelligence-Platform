@@ -106,13 +106,19 @@ async def upload_dataset(db: Session, file: UploadFile, user: User) -> Dataset:
         row_count=metadata["row_count"],
         column_count=metadata["column_count"],
         columns_metadata=metadata["columns_metadata"],
-        status="uploaded",
+        status="pending",
     )
     db.add(dataset)
     db.commit()
     db.refresh(dataset)
 
     logger.info("Dataset created: %s (id=%s)", dataset.original_filename, dataset.id)
+
+    # Trigger Celery background task
+    from app.tasks import process_dataset_task
+    process_dataset_task.delay(str(dataset.id))
+    logger.info("Triggered background profiling task for dataset ID: %s", dataset.id)
+
     return dataset
 
 

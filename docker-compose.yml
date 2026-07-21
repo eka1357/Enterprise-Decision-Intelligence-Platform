@@ -15,6 +15,16 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build: ./backend
     environment:
@@ -23,12 +33,33 @@ services:
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "60"
       UPLOAD_DIR: /app/storage/uploads
       CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173"]'
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
     ports:
       - "8000:8000"
     volumes:
       - upload_data:/app/storage/uploads
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_worker:
+    build: ./backend
+    command: celery -A app.celery_app.celery worker --loglevel=info
+    environment:
+      DATABASE_URL: postgresql://edip:edip_dev_password@postgres:5432/edip
+      JWT_SECRET_KEY: dev-secret-key-change-in-production
+      UPLOAD_DIR: /app/storage/uploads
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    volumes:
+      - upload_data:/app/storage/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   frontend:
