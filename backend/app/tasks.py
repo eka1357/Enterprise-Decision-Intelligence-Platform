@@ -560,3 +560,87 @@ def generate_excel_report_task(
         db.close()
 
 
+@celery.task(name="app.tasks.train_segmentation_model_task")
+def train_segmentation_model_task(dataset_id: str) -> str:
+    """Asynchronously pre-process RFM features and train a customer K-Means segmentation model."""
+    logger.info("Starting background K-Means training for dataset ID: %s", dataset_id)
+    db = SessionLocal()
+    try:
+        import uuid
+        db_id = uuid.UUID(dataset_id) if isinstance(dataset_id, str) else dataset_id
+        dataset = db.query(Dataset).filter(Dataset.id == db_id).first()
+        if not dataset:
+            logger.error("Dataset not found: %s", dataset_id)
+            return f"Error: Dataset {dataset_id} not found"
+
+        file_path = dataset.cleaned_file_path if dataset.cleaned_file_path else dataset.file_path
+        if not file_path or not os.path.exists(file_path):
+            return f"Error: File path {file_path} not found"
+
+        df = pd.read_csv(file_path)
+
+        # 1. Feature Preprocessing
+        from ml.segmentation import prepare_segmentation_features, train_segmentation
+        df_features = prepare_segmentation_features(df, dataset.column_mapping)
+
+        # 2. Model Training
+        kmeans, scaler, metrics, df_labeled = train_segmentation(df_features)
+
+        # 3. Save Model Run Artifacts
+        version_uuid = uuid.uuid4()
+        version_id = f"seg_v_{version_uuid.hex[:8]}"
+        
+        models_dir = Path(project_root) / "backend" / "storage" / "models"
+        models_dir.mkdir(parents=True, exist_ok=True)
+        model_path = models_dir / f"{version_id}.joblib"
+
+        joblib.dump({"model": kmeans, "scaler": scaler, "metrics": metrics}, model_path)
+        logger.info("Saved model artifact to %s", model_path)
+
+        # 4. Insert model run record into DB
+        # Convert metrics dict to floats/ints for DB storage compatibility
+        model_metrics = {
+            "silhouette": metrics["silhouette"],
+            "cluster_sizes": {str(k): int(v) for k, v in metrics["cluster_sizes"].items()},
+            # Keep profiles short/safe for db metadata columns
+            "profiles": metrics["profiles"]
+        }
+
+        model_version = ModelVersion(
+            id=version_uuid,
+            dataset_id=dataset.id,
+            version_id=version_id,
+            file_path=str(model_path),
+            metrics=model_metrics,
+        )
+        db.add(model_version)
+        db.commit()
+
+        # Save labeled customer assignments directly back to the database as JSON or a temporary schema
+        # For simplicity, we can serialize the first 100 customer labels to model metadata
+        sample_customers = []
+        for _, row in df_labeled.head(100).iterrows():
+            sample_customers.append({
+                "customer": str(row.iloc[0]), # index 0 is customer ID
+                "spend": float(row["total_spend"]),
+                "frequency": int(row["frequency"]),
+                "segment": row["segment_name"]
+            })
+        
+        # Save to metadata columns
+        model_version.metrics["sample_customers"] = sample_customers
+        db.add(model_version)
+        db.commit()
+
+        logger.info("Successfully trained customer segmentation version: %s", version_id)
+        return f"Success: Trained K-Means model {version_id} with silhouette {metrics['silhouette']}%"
+
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Failed to train customer segments for dataset %s", dataset_id)
+        return f"Failure: {exc}"
+    finally:
+        db.close()
+
+
+
