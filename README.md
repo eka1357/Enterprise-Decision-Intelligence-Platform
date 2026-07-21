@@ -39,7 +39,7 @@ scripts/       → Utility scripts
 ```
 That's it — Complete Project is completed in 8 phases total, Recap:
 
-1.Skeleton
+1.Skeleton /n
 2.Data pipeline 
 3.Sales analytics module 
 4.Sales forecasting + SHAP 
